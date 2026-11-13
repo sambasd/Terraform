@@ -1,48 +1,46 @@
 
-pipeline {
-    agent any
-
-    stages {
-        stage('Checkout Terraform') {
-            steps {
-                checkout scm
-                echo 'Terraform repository downloaded successfully'
-            }
-        }
-
-        stage('Checkout Ansible') {
-            steps {
-                dir('ansible') {
-                    git branch: 'main',
-                        url: 'https://github.com/sambasd/Ansible-2026.git'
-                }
-                echo 'Ansible repository downloaded successfully'
-            }
-        }
-
-        stage('Check Tools') {
-            steps {
-                sh '''
-                    echo "Checking Terraform"
-                    terraform version
-
-                    echo "Checking Ansible"
-                    /usr/local/bin/ansible --version
-
-                    echo "Checking project files"
-                    ls -la
-                    ls -la ansible/
-                '''
-            }
-        }
+stage('Terraform Init') {
+    steps {
+        sh '''
+            terraform -chdir=/opt/terraform-projects/aws-50-rhel init -input=false
+        '''
     }
+}
 
-    post {
-        success {
-            echo 'Both repositories and tools verified successfully!'
-        }
-        failure {
-            echo 'Pipeline failed. Check the Jenkins console output.'
-        }
+stage('Terraform Validate') {
+    steps {
+        sh '''
+            terraform -chdir=/opt/terraform-projects/aws-50-rhel validate
+        '''
+    }
+}
+
+stage('Terraform Plan') {
+    steps {
+        sh '''
+            terraform -chdir=/opt/terraform-projects/aws-50-rhel plan -input=false -out=jenkins.tfplan
+        '''
+    }
+}
+
+stage('Approve Deployment') {
+    steps {
+        input message: 'Approve creation of 2 RHEL EC2 servers?', ok: 'Deploy'
+    }
+}
+
+stage('Terraform Apply') {
+    steps {
+        sh '''
+            terraform -chdir=/opt/terraform-projects/aws-50-rhel apply -input=false jenkins.tfplan
+        '''
+    }
+}
+
+stage('Terraform Output') {
+    steps {
+        sh '''
+            terraform -chdir=/opt/terraform-projects/aws-50-rhel output
+        '''
     }
 }
