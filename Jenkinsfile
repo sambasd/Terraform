@@ -1,70 +1,30 @@
-pipeline {
-    agent any
+stage('Ansible Configuration') {
+    steps {
+        sh '''
+            set -e
+            export ANSIBLE_HOST_KEY_CHECKING=False
 
-    options {
-        disableConcurrentBuilds()
-    }
+            cd /opt/ansible-project
 
-    stages {
+            echo "Testing server connectivity..."
+            /usr/local/bin/ansible -i inventory.ini rhel_servers -m ping
 
-        stage('Checkout Terraform') {
-            steps {
-                checkout scm
-            }
-        }
+            echo "Creating Linux users..."
+            /usr/local/bin/ansible-playbook -i inventory.ini users.yml
 
-        stage('Checkout Ansible') {
-            steps {
-                dir('ansible') {
-                    git branch: 'main',
-                        url: 'https://github.com/sambasd/Ansible-2026.git'
-                }
-            }
-        }
+            echo "Configuring filesystems..."
+            /usr/local/bin/ansible-playbook -i inventory.ini filesystem.yml
 
-        stage('Check Tools') {
-            steps {
-                sh '''
-                    terraform version
-                    /usr/local/bin/ansible --version
-                '''
-            }
-        }
+            echo "Configuring swap..."
+            /usr/local/bin/ansible-playbook -i inventory.ini swap.yml
 
-        stage('Terraform Init') {
-            steps {
-                sh 'terraform -chdir=/opt/terraform-projects/aws-50-rhel init -input=false'
-            }
-        }
+            echo "Installing agents..."
+            /usr/local/bin/ansible-playbook -i inventory.ini agents.yml
 
-        stage('Terraform Validate') {
-            steps {
-                sh 'terraform -chdir=/opt/terraform-projects/aws-50-rhel validate'
-            }
-        }
+            echo "Configuring CloudWatch..."
+            /usr/local/bin/ansible-playbook -i inventory.ini cloudwatch-agent.yml
 
-        stage('Terraform Plan') {
-            steps {
-                sh 'terraform -chdir=/opt/terraform-projects/aws-50-rhel plan -input=false -out=jenkins.tfplan'
-            }
-        }
-
-        stage('Approve Deployment') {
-            steps {
-                input message: 'Approve creation of 2 RHEL EC2 servers?', ok: 'Deploy'
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                sh 'terraform -chdir=/opt/terraform-projects/aws-50-rhel apply -input=false jenkins.tfplan'
-            }
-        }
-
-        stage('Terraform Output') {
-            steps {
-                sh 'terraform -chdir=/opt/terraform-projects/aws-50-rhel output'
-            }
-        }
+            echo "All Ansible playbooks completed!"
+        '''
     }
 }
