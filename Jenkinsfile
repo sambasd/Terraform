@@ -2,34 +2,88 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+    }
+
+    environment {
+        TF_DIR = "${WORKSPACE}"
+    }
+
     stages {
-        stage('Ansible Configuration') {
+
+        stage('Checkout Terraform') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Check Tools and AWS Identity') {
             steps {
                 sh '''
                     set -e
-                    export ANSIBLE_HOST_KEY_CHECKING=False
-
-                    cd /opt/ansible-project
-
-                    echo "Testing Ansible connectivity..."
-                    /usr/local/bin/ansible -i inventory.ini rhel_servers -m ping
-
-                    echo "Creating users..."
-                    /usr/local/bin/ansible-playbook -i inventory.ini users.yml
-
-                    echo "Configuring filesystems..."
-                    /usr/local/bin/ansible-playbook -i inventory.ini filesystem.yml
-
-                    echo "Configuring swap..."
-                    /usr/local/bin/ansible-playbook -i inventory.ini swap.yml
-
-                    echo "Installing agents..."
-                    /usr/local/bin/ansible-playbook -i inventory.ini agents.yml
-
-                    echo "Configuring CloudWatch..."
-                    /usr/local/bin/ansible-playbook -i inventory.ini cloudwatch-agent.yml
+                    terraform version
+                    aws --version
+                    aws sts get-caller-identity
                 '''
             }
         }
+
+        stage('Terraform Init') {
+            steps {
+                sh 'terraform -chdir="$TF_DIR" init'
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                sh 'terraform -chdir="$TF_DIR" validate'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh '''
+                    set -e
+                    terraform -chdir="$TF_DIR" plan \
+                        -out="$TF_DIR/jenkins.tfplan"
+                '''
+            }
+        }
+
+        stage('Approve Terraform Apply') {
+            steps {
+                input message: 'Review the Terraform plan. Approve infrastructure changes?',
+                      ok: 'Approve and Apply'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh '''
+                    set -e
+                    terraform -chdir="$TF_DIR" apply \
+                        -auto-approve "$TF_DIR/jenkins.tfplan"
+                '''
+            }
+        }
+
+        stage('Terraform Output') {
+            steps {
+                sh 'terraform -chdir="$TF_DIR" output'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Terraform pipeline completed successfully.'
+        }
+
+        failure {
+            echo 'Terraform failed. Review Console Output.'
+        }
     }
 }
+
