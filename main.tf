@@ -55,7 +55,7 @@ resource "tls_private_key" "rhel_key" {
 # Register public key in AWS
 
 resource "aws_key_pair" "rhel_key" {
-  key_name   = "rhel-terraform-key"
+  key_name   = "rhel-terraform-key-2016"
   public_key = tls_private_key.rhel_key.public_key_openssh
 }
 
@@ -70,7 +70,7 @@ resource "local_file" "private_key" {
 # Security group
 
 resource "aws_security_group" "rhel_sg" {
-  name        = "rhel-terraform-sg"
+  name        = "rhel-terraform-sg-2026"i
   description = "SSH access for RHEL test servers"
   vpc_id      = data.aws_vpc.default.id
 
