@@ -70,7 +70,7 @@ resource "local_file" "private_key" {
 # Security group
 
 resource "aws_security_group" "rhel_sg" {
-  name        = "rhel-terraform-sg-2026"i
+  name        = "rhel-terraform-sg-2026"
   description = "SSH access for RHEL test servers"
   vpc_id      = data.aws_vpc.default.id
 
