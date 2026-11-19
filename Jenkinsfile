@@ -21,18 +21,34 @@ pipeline {
 
         stage('Check Tools and AWS Identity') {
             steps {
-                sh '''
-                    set -e
-                    terraform version
-                    aws --version
-                    aws sts get-caller-identity
-                '''
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        terraform version
+                        aws --version
+                        aws sts get-caller-identity
+                    '''
+                }
             }
         }
 
         stage('Terraform Init') {
             steps {
-                sh 'terraform -chdir="$TF_DIR" init'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh 'terraform -chdir="$TF_DIR" init'
+                }
             }
         }
 
@@ -44,11 +60,19 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                sh '''
-                    set -e
-                    terraform -chdir="$TF_DIR" plan \
-                        -out="$TF_DIR/jenkins.tfplan"
-                '''
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        terraform -chdir="$TF_DIR" plan \
+                            -out="$TF_DIR/jenkins.tfplan"
+                    '''
+                }
             }
         }
 
@@ -61,17 +85,33 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                sh '''
-                    set -e
-                    terraform -chdir="$TF_DIR" apply \
-                        -auto-approve "$TF_DIR/jenkins.tfplan"
-                '''
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        terraform -chdir="$TF_DIR" apply \
+                            -auto-approve "$TF_DIR/jenkins.tfplan"
+                    '''
+                }
             }
         }
 
         stage('Terraform Output') {
             steps {
-                sh 'terraform -chdir="$TF_DIR" output'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-terraform',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh 'terraform -chdir="$TF_DIR" output'
+                }
             }
         }
     }
@@ -86,4 +126,3 @@ pipeline {
         }
     }
 }
-
