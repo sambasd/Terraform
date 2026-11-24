@@ -55,7 +55,7 @@ resource "tls_private_key" "rhel_key" {
 # Register public key in AWS
 
 resource "aws_key_pair" "rhel_key" {
-  key_name   = "rhel-terraform-key-2026-v2"
+  key_name   = "rhel-terraform-key-2026-v3"
   public_key = tls_private_key.rhel_key.public_key_openssh
 }
 
